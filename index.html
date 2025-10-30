@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8">
+    <title>Seattle Parks and Restrooms</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://unpkg.com/maplibre-gl@^5.9.0/dist/maplibre-gl.css" rel="stylesheet">
+    <script src="https://unpkg.com/maplibre-gl@^5.9.0/dist/maplibre-gl.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+      }
+
+      #side-panel {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        width: 320px;
+        overflow-y: auto;
+        max-height: 90vh;
+      }
+
+      @media (max-width: 1024px) {
+        #side-panel {
+          display: none;
+        }
+      }
+
+      button {
+        margin-bottom: 10px;
+      }
+
+      table {
+        border-collapse: collapse;
+        border-spacing: 0;
+        width: 100%;
+        border: 1px solid #ddd;
+      }
+
+      th, td {
+        text-align: left;
+        padding: 12px;
+      }
+
+      tr:nth-child(even) {
+        background-color: #f2f2f2;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="map"></div>
+    <div id="side-panel">
+      <h2>Seattle Parks</h2>
+      <button>Sort by Park Name</button>
+      <table>
+        <tr>
+          <th>Park Name</th>
+          <th>Restroom Count</th>
+        </tr>
+      </table>
+    </div>
+
+    <script>
+      const map = new maplibregl.Map({
+        container: 'map',
+        center: [-122.33, 47.60],
+        zoom: 11,
+        style: {
+          "version": 8,
+          "sources": {
+            "basemap": {
+              "type": "raster",
+              "tiles": ["https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"],
+              "tileSize": 256
+            }
+          },
+          "layers": [{
+            "id": "basemap",
+            "type": "raster",
+            "source": "basemap"
+          }]
+        }
+      });
+
+      async function geojsonFetch() {
+        let response, dataset1, dataset2, table;
+        response = await fetch('assets/Parks_Restrooms.geojson');
+        dataset1 = await response.json();
+        response = await fetch('assets/Park_Boundary.geojson');
+        dataset2 = await response.json();
+
+        map.on('load', function () {
+          map.addSource('dataset2', {
+            type: 'geojson',
+            data: dataset2
+          });
+
+          map.addLayer({
+            'id': 'dataset2-layer',
+            'type': 'fill',
+            'source': 'dataset2',
+            'paint': {
+              'fill-color': '#7cc37c',
+              'fill-opacity': 0.4
+            }
+          });
+
+          map.addSource('dataset1', {
+            type: 'geojson',
+            data: dataset1
+          });
+
+          map.addLayer({
+            'id': 'dataset1-layer',
+            'type': 'circle',
+            'source': 'dataset1',
+            'paint': {
+              'circle-radius': 6,
+              'circle-color': '#3d85c6',
+              'circle-stroke-width': 1,
+              'circle-stroke-color': 'white'
+            }
+          });
+        });
+
+        table = document.getElementsByTagName("table")[0];
+        let row, cell1, cell2;
+        for (let i = 0; i < dataset1.features.length; i++) {
+          row = table.insertRow(-1);
+          cell1 = row.insertCell(0);
+          cell2 = row.insertCell(1);
+          cell1.innerHTML = dataset1.features[i].properties.PARK;
+          cell2.innerHTML = dataset1.features[i].properties.MAINT_DISTRICT;
+        }
+
+        let btn = document.getElementsByTagName("button")[0];
+        btn.addEventListener('click', sortTable);
+
+        function sortTable(e) {
+          let table, rows, switching, i, x, y, shouldSwitch;
+          table = document.getElementsByTagName("table")[0];
+          switching = true;
+          while (switching) {
+            switching = false;
+            rows = table.rows;
+            for (i = 1; i < (rows.length - 1); i++) {
+              shouldSwitch = false;
+              x = rows[i].getElementsByTagName("td")[1].innerHTML.toLowerCase();
+              y = rows[i + 1].getElementsByTagName("td")[1].innerHTML.toLowerCase();
+              if (x > y) {
+                shouldSwitch = true;
+                break;
+              }
+            }
+            if (shouldSwitch) {
+              rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+              switching = true;
+            }
+          }
+        }
+      }
+
+      geojsonFetch();
+    </script>
+  </body>
+</html>
